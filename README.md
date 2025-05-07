@@ -6,7 +6,7 @@
 
 以下は、各週のディレクトリへのリンクです。各ディレクトリ内のREADMEファイルに、演習で作成したGoogle Colaboratory Notebookへのリンクが記載されています。
 
-* [Week 1: Python基礎・環境構築](./Week1)
+* [Week 1: Python基礎・環境構築](./week1)
 * [Week 2: Python基礎 発展・Git応用](./week2/)
 * [Week 3: データ分析 - NumPy / Pandas基礎](./week3/)
 * [Week 4: データ分析 - 可視化 / EDA](./week4/)
