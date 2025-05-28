@@ -1,0 +1,251 @@
+# % [markdown]
+# # 5　実践AI講座 第5回　ワクワク系AIプロジェクト1 (MNIST)
+# ### 演習課題用ノートブック(FashionMNIST)
+
+# %
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import torchvision
+import torchvision.transforms as transforms
+
+# %
+#各要素は画像データに対応するtorch.tensorとラベルからなる。
+'''
+root[str]: データの保存（または参照）場所
+train[bool]: Trueなら訓練データセット、Falseならテストデータセットを取得
+download[bool]: データがrootで指定したパスに存在しない場合、ダウンロードするかどうかを指定
+'''
+train_dataset = torchvision.datasets.FashionMNIST(
+    root ='./data',
+    train=True,
+    transform=transforms.ToTensor(),
+    download=True,
+)
+
+test_dataset = torchvision.datasets.FashionMNIST(
+    root ='./data',
+    train=False,
+    transform=transforms.ToTensor(),
+    download=True,
+)
+
+# %
+batch_size = 256
+
+train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
+                                           batch_size=batch_size,
+                                           shuffle=True)
+
+test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
+                                           batch_size=batch_size,
+                                           shuffle=True)
+
+
+# %
+class Net(nn.Module):
+    def __init__(self, input_size, hidden1_size, hidden2_size, output_size):
+        super(Net, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden1_size)
+        self.fc2 = nn.Linear(hidden1_size, hidden2_size)
+        self.fc3 = nn.Linear(hidden2_size, output_size)
+
+    def forward(self, x): # x : 入力
+        z1 = F.relu(self.fc1(x))
+        z2 = F.relu(self.fc2(z1))
+        y = self.fc3(z2)
+        return y
+
+
+# %
+input_size = 28*28
+hidden1_size = 1024
+hidden2_size = 512
+output_size = 10
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+model = Net(input_size, hidden1_size, hidden2_size, output_size).to(device)
+print(model)
+
+
+# %
+# 損失関数　criterion：基準
+# CrossEntropyLoss：交差エントロピー誤差関数
+criterion = nn.CrossEntropyLoss()
+
+# 最適化法の指定　optimizer：最適化
+# SGD：確率的勾配降下法
+optimizer = optim.SGD(model.parameters(), lr=0.01)
+
+
+# %
+def train_model(model, train_loader, criterion, optimizer, device='cpu'):
+
+    train_loss = 0.0
+    num_train = 0
+
+    # 学習モデルに変換
+    model.train()
+
+    for i, (images, labels) in enumerate(train_loader):
+        # batch数をカウント
+        num_train += len(labels)
+
+        images, labels = images.view(-1, 28*28).to(device), labels.to(device)
+
+        # 勾配を初期化
+        optimizer.zero_grad()
+
+        # 推論(順伝播)
+        outputs = model(images)
+
+        # 損失の算出
+        loss = criterion(outputs, labels)
+
+        # 誤差逆伝播
+        loss.backward()
+
+        # パラメータの更新
+        optimizer.step()
+
+        # lossを加算
+        train_loss += loss.item()
+
+    # lossの平均値を取る
+    train_loss = train_loss / num_train
+
+    return train_loss
+
+
+# %
+def test_model(model, test_loader, criterion, optimizer, device='cpu'):
+
+    test_loss = 0.0
+    num_test = 0
+
+    # modelを評価モードに変更
+    model.eval()
+
+    with torch.no_grad(): # 勾配計算の無効化
+        for i, (images, labels) in enumerate(test_loader):
+            num_test += len(labels)
+            images, labels = images.view(-1, 28*28).to(device), labels.to(device)
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            test_loss += loss.item()
+
+        # lossの平均値を取る
+        test_loss = test_loss / num_test
+    return test_loss
+
+
+# %
+def learning(model, train_loader, test_loader, criterion, opimizer, num_epochs, device='cpu'):
+
+    train_loss_list = []
+    test_loss_list = []
+
+    # epoch数分繰り返す
+    for epoch in range(1, num_epochs+1, 1):
+
+        train_loss = train_model(model, train_loader, criterion, optimizer, device=device)
+        test_loss = test_model(model, test_loader, criterion, optimizer, device=device)
+
+        print("epoch : {}, train_loss : {:.5f}, test_loss : {:.5f}" .format(epoch, train_loss, test_loss))
+
+        train_loss_list.append(train_loss)
+        test_loss_list.append(test_loss)
+
+    return train_loss_list, test_loss_list
+
+
+# %
+num_epochs = 10
+train_loss_list, test_loss_list = learning(model, train_loader, test_loader, criterion, optimizer, num_epochs, device=device)
+
+# %
+import matplotlib.pyplot as plt
+plt.plot(range(len(train_loss_list)), train_loss_list, c='b', label='train loss')
+plt.plot(range(len(test_loss_list)), test_loss_list, c='r', label='test loss')
+plt.xlabel("epoch")
+plt.ylabel("loss")
+plt.legend()
+plt.grid()
+plt.show()
+
+
+# %
+FashionMNIST_item = [
+    'T-shirt/top',
+    'Trouser',
+    'Pullover',
+    'Dress',
+    'Coat',
+    'Sandal',
+    'Shirt',
+    'Sneaker',
+    'Bag',
+    'Ankle boot'
+]
+#Trouser : ズボン
+#Pullover : ≒セーター
+#Ankle boot : 短めのブーツ
+
+# %
+plt.figure(figsize=(20, 10))
+for i in range(10):
+    image, label = test_dataset[i]
+    image = image.view(-1, 28*28).to(device)
+
+    # 推論
+    prediction_label = torch.argmax(model(image))
+
+    ax = plt.subplot(1, 10, i+1)
+
+    plt.imshow(image.detach().to('cpu').numpy().reshape(28, 28), cmap='gray')
+    ax.axis('off')
+    ax.set_title('label : {}\n Prediction : {}'.format(FashionMNIST_item[label], FashionMNIST_item[prediction_label]), fontsize=10)
+plt.show()
+
+
+# %
+correct_estimate = 0
+incorrect_index_list =[]
+
+for i in range(len(test_dataset)):
+  image, label = test_dataset[i]
+  image = image.view(-1, 28*28).to(device)
+
+  prediction_label = torch.argmax(model(image))
+
+  if prediction_label == label:
+    correct_estimate += 1
+  elif len(incorrect_index_list) < 10:
+    incorrect_index_list.append(i)
+
+
+print(f'正解数:{correct_estimate}　テストデータ総数:{len(test_dataset)}　正解率:{correct_estimate/len(test_dataset)}')
+
+# %
+#誤った予測を立ててしまった画像のうちの10個に対し、予測と正解、画像を表示する。
+for i in range(len(incorrect_index_list)):
+  image, label = test_dataset[incorrect_index_list[i]]
+  ax = plt.subplot(2, 5, i+1)
+  plt.imshow(image.detach().to('cpu').numpy().reshape(28, 28), cmap='gray')
+  ax.axis('off')
+  ax.set_title('label : {}\n Prediction : {}'.format(FashionMNIST_item[label], incorrect_index_list[i]), fontsize=10)
+plt.show()
+
+
+# % [markdown]
+# ##演習課題2用
+# 以下のセルに、
+# 1. サンプルコードから何を変更したのか
+# 2. 結果（正解率等）が変わったか
+# を簡単でいいので書いてください。
+
+# % [markdown]
+# **ここに書く**
+
+
