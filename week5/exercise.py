@@ -24,7 +24,7 @@ train[bool]: Trueなら訓練データセット、Falseならテストデータ�
 download[bool]: データがrootで指定したパスに存在しない場合、ダウンロードするかどうかを指定
 '''
 train_dataset = torchvision.datasets.FashionMNIST(
-    root ='./data',
+    root='./data',
     train=True,
     transform=transforms.ToTensor(),
     download=True,
@@ -59,9 +59,9 @@ class Net(nn.Module):
         self.bn3 = nn.BatchNorm1d(hidden3_size)
 
     def forward(self, x): # x : 入力
-        z1 = F.gelu(self.bn1(self.fc1(x)))
+        z1 = F.relu(self.bn1(self.fc1(x)))
         z1 = F.dropout(z1)
-        z2 = F.leaky_relu(self.bn2(self.fc2(z1)))
+        z2 = F.relu(self.bn2(self.fc2(z1)))
         z2 = F.dropout(z2)
         z3 = F.relu(self.bn3(self.fc3(z2)))
         y = self.fc4(z3)
